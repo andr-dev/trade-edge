@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{cell::Cell, error::Error};
 
 use alloy::{
     providers::{Provider, ProviderBuilder, RootProvider},
@@ -8,10 +8,11 @@ use alloy::{
         types::{Filter, Log},
     },
 };
-use itertools::Itertools;
+use itertools::{Either, Itertools};
 use log::{error, info};
 #[allow(unused)]
 use monad_event_ring::*;
+use monad_exec_events::ffi::monad_exec_block_start;
 #[allow(unused)]
 use monad_exec_events::{ffi::DEFAULT_FILE_NAME, *};
 use tokio::sync::broadcast::error::TryRecvError;
@@ -133,6 +134,10 @@ pub async fn poll_trade_using_ws(
     }
 }
 
+thread_local! {
+    static CURRENT_BLOCK_NUMBER: Cell<Option<u64>> = const { Cell::new(None) };
+}
+
 pub fn poll_trade_using_events(event_reader: &mut ExecEventReader) -> Option<Trade> {
     loop {
         let event_descriptor = match event_reader.next_descriptor() {
@@ -141,30 +146,39 @@ pub fn poll_trade_using_events(event_reader: &mut ExecEventReader) -> Option<Tra
             EventNextResult::Ready(event_descriptor) => event_descriptor,
         };
 
-        let event = match event_descriptor.try_read() {
+        // CURRENT_BLOCK_NUMBER is a thread-local used to pass block_number into the fn
+        // pointer below without capturing. try_filter_map requires a fn pointer (not a
+        // closure) to enforce purity over the zero-copy event buffer.
+        match event_descriptor.try_filter_map(|event| match event {
+            ExecEventRef::BlockStart(monad_exec_block_start {
+                eth_block_input, ..
+            }) => Some(Either::Left(eth_block_input.number)),
+            ExecEventRef::TxnLog {
+                txn_log,
+                topic_bytes,
+                data_bytes,
+                ..
+            } => CURRENT_BLOCK_NUMBER
+                .get()
+                .and_then(|block_number| {
+                    Trade::decode(
+                        block_number,
+                        &txn_log.address.bytes,
+                        topic_bytes,
+                        data_bytes,
+                    )
+                })
+                .map(Either::Right),
+            _ => None,
+        }) {
             EventPayloadResult::Expired => panic!("expired"),
-            EventPayloadResult::Ready(event) => event,
+            EventPayloadResult::Ready(None) => {}
+            EventPayloadResult::Ready(Some(Either::Left(new_block_number))) => {
+                CURRENT_BLOCK_NUMBER.set(Some(new_block_number));
+            }
+            EventPayloadResult::Ready(Some(Either::Right(trade))) => {
+                return Some(trade);
+            }
         };
-
-        let ExecEvent::TxnLog {
-            txn_index,
-            txn_log,
-            topic_bytes,
-            data_bytes,
-        } = event
-        else {
-            continue;
-        };
-
-        let Some(trade) = Trade::decode(
-            event_descriptor.get_block_number().unwrap(),
-            &txn_log.address.bytes,
-            &topic_bytes,
-            &data_bytes,
-        ) else {
-            continue;
-        };
-
-        return Some(trade);
     }
 }
