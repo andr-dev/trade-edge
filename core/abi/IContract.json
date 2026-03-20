@@ -1,0 +1,1 @@
+[{"type":"event","name":"Trade","inputs":[{"name":"trade_id","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"hash","type":"bytes32","indexed":false,"internalType":"bytes32"}],"anonymous":false}]

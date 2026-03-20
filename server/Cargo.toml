@@ -1,0 +1,17 @@
+[package]
+name = "trade-edge-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+trade-edge-core   = { workspace = true }
+alloy-primitives  = { workspace = true }
+axum              = { workspace = true }
+clap              = { workspace = true }
+futures           = { workspace = true }
+rand              = { workspace = true }
+rand_distr        = { workspace = true }
+simplelog         = { workspace = true }
+log               = { workspace = true }
+tokio             = { workspace = true }
+tokio-stream      = { workspace = true }

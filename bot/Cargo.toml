@@ -1,0 +1,20 @@
+[package]
+name = "trade-edge-bot"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+trade-edge-core = { workspace = true }
+
+monad-event-ring  = { workspace = true }
+monad-exec-events = { workspace = true }
+
+alloy         = { workspace = true, features = ["provider-ws", "rpc-types"] }
+clap          = { workspace = true }
+futures       = { workspace = true }
+itertools     = { workspace = true }
+reqwest       = { workspace = true }
+serde         = { workspace = true }
+simplelog     = { workspace = true }
+log           = { workspace = true }
+tokio         = { workspace = true }

@@ -1,0 +1,35 @@
+[workspace]
+resolver = "2"
+members = ["bot", "core", "server", "tui"]
+
+[profile.release]
+lto = "thin"
+opt-level = 3
+codegen-units = 1
+
+[workspace.dependencies]
+trade-edge-core = { path = "./core" }
+
+monad-event-ring  = { git = "https://github.com/category-labs/monad", tag = "release/exec-events-sdk-v1.1" }
+monad-exec-events = { git = "https://github.com/category-labs/monad", tag = "release/exec-events-sdk-v1.1" }
+
+
+alloy             = "0.8"
+alloy-primitives  = { version = "0.8", features = ["serde"] }
+alloy-sol-macro   = { version = "0.8", features = ["json"] }
+alloy-sol-types   = { version = "0.8", features = ["json"] }
+axum              = { version = "=0.8.3",   default-features = false, features = ["http1", "json", "query", "tokio"] }
+clap              = { version = "4.2", features = ["derive"] }
+crossterm         = "0.28"
+futures           = "0.3"
+itertools         = "0.10"
+rand              = "0.8"
+rand_distr        = "0.4"
+ratatui           = "0.29"
+reqwest           = "0.12.5"
+serde             = "1.0"
+serde_json        = "1.0"
+simplelog         = "0.12.2"
+tokio             = { version = "1.39", features = ["macros", "rt", "rt-multi-thread"] }
+tokio-stream      = { version = "0.1.17", features = ["sync"] }
+log               = "0.4"
