@@ -66,17 +66,12 @@ impl Strategy {
             arbitrum_pool,
         } = self;
 
-        let monad_rpc_provider: RootProvider<_, alloy::network::Ethereum> =
-            ProviderBuilder::default()
-                .on_ws(WsConnect::new(monad_rpc_url))
-                .await?;
-
-        let mut monad_ws_subscription: Subscription<MonadNotification<Log>> = monad_rpc_provider
-            .subscribe(("monadLogs", Filter::default().address(CONTRACT_ADDRESS)))
-            .await?;
+        let event_ring_path = EventRingPath::resolve(DEFAULT_FILE_NAME)?;
+        let event_ring = EventRing::new(event_ring_path)?;
+        let mut event_reader = event_ring.create_reader();
 
         loop {
-            let Some(trade) = Self::poll_trade_using_ws(&mut monad_ws_subscription).await? else {
+            let Some(trade) = Self::poll_trade_using_events(&mut event_reader).await? else {
                 continue;
             };
 
@@ -139,5 +134,37 @@ pub async fn poll_trade_using_ws(
 }
 
 pub fn poll_trade_using_events(event_reader: &mut ExecEventReader) -> Option<Trade> {
-    todo!()
+    loop {
+        let event_descriptor = match event_reader.next_descriptor() {
+            EventNextResult::Gap => panic!("gap"),
+            EventNextResult::NotReady => return None,
+            EventNextResult::Ready(event_descriptor) => event_descriptor,
+        };
+
+        let event = match event_descriptor.try_read() {
+            EventPayloadResult::Expired => panic!("expired"),
+            EventPayloadResult::Ready(event) => event,
+        };
+
+        let ExecEvent::TxnLog {
+            txn_index,
+            txn_log,
+            topic_bytes,
+            data_bytes,
+        } = event
+        else {
+            continue;
+        };
+
+        let Some(trade) = Trade::decode(
+            event_descriptor.get_block_number().unwrap(),
+            &txn_log.address.bytes,
+            &topic_bytes,
+            &data_bytes,
+        ) else {
+            continue;
+        };
+
+        return Some(trade);
+    }
 }
